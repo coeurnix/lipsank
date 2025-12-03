@@ -2,6 +2,10 @@
 
 Lipsank is a tiny, single-header C/C++ library that extracts simple real-time mouth parameters from raw mono PCM16 audio. It is fully heuristic (no ML model) and portable enough to run on desktops, mobile, or WebAssembly builds.
 
+# Demo
+
+Check out an online demo at: [coeurnix.github.io/lipsank/](coeurnix.github.io/lipsank/)
+
 # Lipsank Quickstart
 
 Lipsank extracts mouth shape parameters from audio for lip-sync animation. Feed it audio samples, get back `open`, `wide`, `round`, `tension`, and `intensity` values (all 0-1).
