@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lipsank – Real-time Lip Sync Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0a0b0d;
+            --bg-panel: #12141a;
+            --bg-card: #1a1d24;
+            --bg-hover: #22262f;
+            --border: #2a2f3a;
+            --border-light: #3a4050;
+            --text-primary: #e8eaed;
+            --text-secondary: #9aa0a8;
+            --text-dim: #5a6270;
+            --accent-cyan: #00d4ff;
+            --accent-magenta: #ff3d9a;
+            --accent-orange: #ff8a3d;
+            --accent-green: #3dff8a;
+            --accent-purple: #a855f7;
+            --graph-open: #00d4ff;
+            --graph-wide: #ff8a3d;
+            --graph-round: #ff3d9a;
+            --graph-tension: #a855f7;
+            --graph-intensity: #3dff8a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', -apple-system, sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(0, 212, 255, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(255, 61, 154, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(168, 85, 247, 0.02) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-top: 1rem;
+        }
+
+        .logo {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .tagline {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-dim);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .panel-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .panel-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .panel-content {
+            padding: 1.5rem;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border-light);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-card);
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag-over {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-zone.has-file {
+            border-color: var(--accent-green);
+            background: rgba(61, 255, 138, 0.05);
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 1rem;
+            opacity: 0.6;
+        }
+
+        .upload-text {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-hint {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-info {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        .file-info.visible {
+            display: block;
+        }
+
+        .file-name {
+            color: var(--accent-cyan);
+            margin-bottom: 0.5rem;
+            word-break: break-all;
+        }
+
+        .file-details {
+            color: var(--text-dim);
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.25rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn:hover {
+            color: var(--text-secondary);
+        }
+
+        .mode-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-deep);
+        }
+
+        .mode-description {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        .btn-animate {
+            width: 100%;
+            margin-top: 1rem;
+            padding: 1rem 2rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            color: var(--bg-deep);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-animate:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-animate:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-animate:not(:disabled):active {
+            transform: translateY(0);
+        }
+
+        .btn-animate.realtime-mode {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+        }
+
+        .progress-container {
+            display: none;
+            margin-top: 1rem;
+        }
+
+        .progress-container.visible {
+            display: block;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: var(--bg-card);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+
+        .progress-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .face-placeholder {
+            aspect-ratio: 1;
+            background: var(--bg-card);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .face-placeholder::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(135deg, transparent 40%, rgba(0, 212, 255, 0.05) 50%, transparent 60%),
+                linear-gradient(225deg, transparent 40%, rgba(255, 61, 154, 0.05) 50%, transparent 60%);
+        }
+
+        .face-avatar {
+            width: 180px;
+            height: 180px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .face-avatar svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .face-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 1.5rem;
+            text-align: center;
+            z-index: 1;
+        }
+
+        .current-values {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .value-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .value-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+
+        .value-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .value-open {
+            color: var(--graph-open);
+        }
+
+        .value-wide {
+            color: var(--graph-wide);
+        }
+
+        .value-round {
+            color: var(--graph-round);
+        }
+
+        .value-tension {
+            color: var(--graph-tension);
+        }
+
+        .value-intensity {
+            color: var(--graph-intensity);
+        }
+
+        .graph-section {
+            margin-top: 2rem;
+        }
+
+        .graph-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .graph-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .graph-legend {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .graph-canvas-wrapper {
+            position: relative;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #graphCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .time-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .status-bar {
+            margin-top: 2rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-dim);
+        }
+
+        .status-dot.ready {
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .status-dot.processing {
+            background: var(--accent-orange);
+            box-shadow: 0 0 8px var(--accent-orange);
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .status-dot.realtime {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .status-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .audio-player {
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .audio-player.visible {
+            display: block;
+        }
+
+        .audio-player audio {
+            width: 100%;
+            height: 40px;
+            border-radius: 8px;
+        }
+
+        .playback-controls {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .btn-control {
+            flex: 1;
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-control:hover:not(:disabled) {
+            background: var(--bg-hover);
+            border-color: var(--accent-cyan);
+            color: var(--text-primary);
+        }
+
+        .btn-control:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 11, 13, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 600px) {
+            .current-values {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .graph-legend {
+                gap: 0.75rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading WASM module...</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1 class="logo">Lipsank</h1>
+            <p class="tagline">Real-time Lip Sync Parameter Extraction</p>
+        </header>
+
+        <div class="main-grid">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 2L12 16M12 16L8 12M12 16L16 12" />
+                            <path d="M4 17V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V17" />
+                        </svg>
+                    </div>
+                    <h2 class="panel-title">Audio Input</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5">
+                                <path d="M9 18V5l12-2v13" />
+                                <circle cx="6" cy="18" r="3" />
+                                <circle cx="18" cy="16" r="3" />
+                            </svg>
+                        </div>
+                        <div class="upload-text">Drop audio file or click to browse</div>
+                        <div class="upload-hint">WAV, MP3, OGG, FLAC, M4A supported</div>
+                    </div>
+                    <input type="file" class="file-input" id="fileInput" accept="audio/*">
+
+                    <div class="file-info" id="fileInfo">
+                        <div class="file-name" id="fileName"></div>
+                        <div class="file-details">
+                            <span id="fileDuration"></span>
+                            <span id="fileSampleRate"></span>
+                            <span id="fileChannels"></span>
+                        </div>
+                    </div>
+
+                    <div class="mode-selector">
+                        <button class="mode-btn active" id="modePreprocess" data-mode="preprocess">
+                            Pre-process
+                        </button>
+                        <button class="mode-btn" id="modeRealtime" data-mode="realtime">
+                            Real-time
+                        </button>
+                    </div>
+                    <div class="mode-description" id="modeDescription">
+                        Process entire file first, then play with synced animation
+                    </div>
+
+                    <div class="audio-player" id="audioPlayerContainer">
+                        <audio id="audioPlayer" controls></audio>
+                    </div>
+
+                    <button class="btn-animate" id="animateBtn" disabled>
+                        Process Audio
+                    </button>
+
+                    <div class="progress-container" id="progressContainer">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">Processing...</div>
+                    </div>
+
+                    <div class="playback-controls">
+                        <button class="btn-control" id="playBtn" disabled>▶ Play</button>
+                        <button class="btn-control" id="pauseBtn" disabled>⏸ Pause</button>
+                        <button class="btn-control" id="resetBtn" disabled>↺ Reset</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <circle cx="9" cy="10" r="1" fill="currentColor" />
+                            <circle cx="15" cy="10" r="1" fill="currentColor" />
+                            <path d="M8 15C8.5 16.5 10 17.5 12 17.5C14 17.5 15.5 16.5 16 15" />
+                        </svg>
+                    </div>
+                    <h2 class="panel-title">Animation Preview</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="face-placeholder">
+                        <div class="face-avatar">
+                            <svg viewBox="0 0 100 100" id="faceSvg">
+                                <ellipse cx="50" cy="50" rx="40" ry="45" fill="#2a2f3a" stroke="#3a4050"
+                                    stroke-width="2" />
+                                <ellipse cx="35" cy="38" rx="8" ry="5" fill="#1a1d24" />
+                                <ellipse cx="65" cy="38" rx="8" ry="5" fill="#1a1d24" />
+                                <circle cx="35" cy="38" r="3" fill="#e8eaed" />
+                                <circle cx="65" cy="38" r="3" fill="#e8eaed" />
+                                <path d="M27 32 Q35 29, 43 32" fill="none" stroke="#3a4050" stroke-width="1.5"
+                                    stroke-linecap="round" />
+                                <path d="M57 32 Q65 29, 73 32" fill="none" stroke="#3a4050" stroke-width="1.5"
+                                    stroke-linecap="round" />
+                                <path d="M50 43 L48 54 Q50 56, 52 54 L50 43" fill="none" stroke="#3a4050"
+                                    stroke-width="1.5" />
+                                <g id="mouthGroup" transform="translate(50, 72)">
+                                    <ellipse id="mouthOuter" cx="0" cy="0" rx="12" ry="3" fill="#1a1d24"
+                                        stroke="#ff3d9a" stroke-width="1.5" />
+                                    <ellipse id="mouthInner" cx="0" cy="0" rx="8" ry="1.5" fill="#12141a" />
+                                    <path id="upperLip" d="M-12 0 Q0 -2, 12 0" fill="none" stroke="#ff3d9a"
+                                        stroke-width="1" opacity="0" />
+                                </g>
+                            </svg>
+                        </div>
+                        <div class="face-label">Example Face. (Could be 3D avatar, etc.)</div>
+                    </div>
+
+                    <div class="current-values">
+                        <div class="value-card">
+                            <div class="value-label">Open</div>
+                            <div class="value-number value-open" id="valOpen">0.00</div>
+                        </div>
+                        <div class="value-card">
+                            <div class="value-label">Wide</div>
+                            <div class="value-number value-wide" id="valWide">0.00</div>
+                        </div>
+                        <div class="value-card">
+                            <div class="value-label">Round</div>
+                            <div class="value-number value-round" id="valRound">0.00</div>
+                        </div>
+                        <div class="value-card">
+                            <div class="value-label">Tension</div>
+                            <div class="value-number value-tension" id="valTension">0.00</div>
+                        </div>
+                        <div class="value-card">
+                            <div class="value-label">Intensity</div>
+                            <div class="value-number value-intensity" id="valIntensity">0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="graph-section">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M3 3V21H21" />
+                            <path d="M7 14L11 10L15 14L21 8" />
+                        </svg>
+                    </div>
+                    <h2 class="panel-title">Parameter Timeline</h2>
+                </div>
+                <div class="panel-content">
+                    <div class="graph-container">
+                        <div class="graph-header">
+                            <div class="graph-legend">
+                                <div class="legend-item">
+                                    <div class="legend-dot" style="background: var(--graph-open)"></div>
+                                    <span>Open</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot" style="background: var(--graph-wide)"></div>
+                                    <span>Wide</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot" style="background: var(--graph-round)"></div>
+                                    <span>Round</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot" style="background: var(--graph-tension)"></div>
+                                    <span>Tension</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-dot" style="background: var(--graph-intensity)"></div>
+                                    <span>Intensity</span>
+                                </div>
+                            </div>
+                            <div class="time-display" id="timeDisplay">0.00s / 0.00s</div>
+                        </div>
+                        <div class="graph-canvas-wrapper">
+                            <canvas id="graphCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="wasmStatus"></div>
+                <span class="status-text" id="wasmStatusText">WASM: Loading...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-text" id="modeStatus">Mode: Pre-process</span>
+            </div>
+            <div class="status-item">
+                <span class="status-text" id="framesStatus">Frames: 0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-text" id="fpsStatus">FPS: --</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="lipsync.js"></script>
+    <script>
+        const App = {
+            wasmReady: false,
+            audioContext: null,
+            audioBuffer: null,
+            audioSource: null,
+            isPlaying: false,
+            playbackStartTime: 0,
+            playbackOffset: 0,
+
+            mode: 'preprocess',
+
+            lipSyncData: [],
+            currentFrame: 0,
+
+            realtimeBuffer: [],
+            realtimeProcessedSamples: 0,
+            realtimeLookaheadMs: 150,
+
+            currentParams: { open: 0, wide: 0.3, round: 0, tension: 0, intensity: 0 },
+
+            graphCanvas: null,
+            graphCtx: null,
+            graphWidth: 0,
+            graphHeight: 0,
+
+            animationId: null,
+            lastFrameTime: 0,
+            frameCount: 0,
+            fps: 0,
+            fpsUpdateTime: 0,
+
+            elements: {},
+
+            colors: {
+                open: '#00d4ff',
+                wide: '#ff8a3d',
+                round: '#ff3d9a',
+                tension: '#a855f7',
+                intensity: '#3dff8a'
+            },
+
+            init() {
+                this.cacheElements();
+                this.setupEventListeners();
+                this.setupGraph();
+                this.initWasm();
+            },
+
+            cacheElements() {
+                this.elements = {
+                    loadingOverlay: document.getElementById('loadingOverlay'),
+                    uploadZone: document.getElementById('uploadZone'),
+                    fileInput: document.getElementById('fileInput'),
+                    fileInfo: document.getElementById('fileInfo'),
+                    fileName: document.getElementById('fileName'),
+                    fileDuration: document.getElementById('fileDuration'),
+                    fileSampleRate: document.getElementById('fileSampleRate'),
+                    fileChannels: document.getElementById('fileChannels'),
+                    modePreprocess: document.getElementById('modePreprocess'),
+                    modeRealtime: document.getElementById('modeRealtime'),
+                    modeDescription: document.getElementById('modeDescription'),
+                    modeStatus: document.getElementById('modeStatus'),
+                    audioPlayerContainer: document.getElementById('audioPlayerContainer'),
+                    audioPlayer: document.getElementById('audioPlayer'),
+                    animateBtn: document.getElementById('animateBtn'),
+                    progressContainer: document.getElementById('progressContainer'),
+                    progressFill: document.getElementById('progressFill'),
+                    progressText: document.getElementById('progressText'),
+                    playBtn: document.getElementById('playBtn'),
+                    pauseBtn: document.getElementById('pauseBtn'),
+                    resetBtn: document.getElementById('resetBtn'),
+                    graphCanvas: document.getElementById('graphCanvas'),
+                    timeDisplay: document.getElementById('timeDisplay'),
+                    wasmStatus: document.getElementById('wasmStatus'),
+                    wasmStatusText: document.getElementById('wasmStatusText'),
+                    framesStatus: document.getElementById('framesStatus'),
+                    fpsStatus: document.getElementById('fpsStatus'),
+                    valOpen: document.getElementById('valOpen'),
+                    valWide: document.getElementById('valWide'),
+                    valRound: document.getElementById('valRound'),
+                    valTension: document.getElementById('valTension'),
+                    valIntensity: document.getElementById('valIntensity'),
+                    mouthOuter: document.getElementById('mouthOuter'),
+                    mouthInner: document.getElementById('mouthInner'),
+                    upperLip: document.getElementById('upperLip')
+                };
+            },
+
+            setupEventListeners() {
+                this.elements.uploadZone.addEventListener('click', () => {
+                    this.elements.fileInput.click();
+                });
+
+                this.elements.fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFile(e.target.files[0]);
+                    }
+                });
+
+                this.elements.uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.elements.uploadZone.classList.add('drag-over');
+                });
+
+                this.elements.uploadZone.addEventListener('dragleave', () => {
+                    this.elements.uploadZone.classList.remove('drag-over');
+                });
+
+                this.elements.uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.elements.uploadZone.classList.remove('drag-over');
+                    if (e.dataTransfer.files.length > 0) {
+                        this.handleFile(e.dataTransfer.files[0]);
+                    }
+                });
+
+                this.elements.modePreprocess.addEventListener('click', () => this.setMode('preprocess'));
+                this.elements.modeRealtime.addEventListener('click', () => this.setMode('realtime'));
+
+                this.elements.animateBtn.addEventListener('click', () => {
+                    if (this.mode === 'preprocess') {
+                        this.processAudio();
+                    } else {
+                        this.playRealtime();
+                    }
+                });
+                this.elements.playBtn.addEventListener('click', () => this.play());
+                this.elements.pauseBtn.addEventListener('click', () => this.pause());
+                this.elements.resetBtn.addEventListener('click', () => this.reset());
+
+                window.addEventListener('resize', () => this.resizeGraph());
+            },
+
+            setMode(mode) {
+                this.mode = mode;
+
+                this.elements.modePreprocess.classList.toggle('active', mode === 'preprocess');
+                this.elements.modeRealtime.classList.toggle('active', mode === 'realtime');
+                this.elements.animateBtn.classList.toggle('realtime-mode', mode === 'realtime');
+
+                if (mode === 'preprocess') {
+                    this.elements.modeDescription.textContent = 'Process entire file first, then play with synced animation';
+                    this.elements.animateBtn.textContent = 'Process Audio';
+                    this.elements.modeStatus.textContent = 'Mode: Pre-process';
+                } else {
+                    this.elements.modeDescription.textContent = 'Process audio in real-time as it plays (~150ms latency)';
+                    this.elements.animateBtn.textContent = '▶ Play & Process';
+                    this.elements.modeStatus.textContent = 'Mode: Real-time';
+                }
+
+                this.reset();
+            },
+
+            setupGraph() {
+                this.graphCanvas = this.elements.graphCanvas;
+                this.graphCtx = this.graphCanvas.getContext('2d');
+                this.resizeGraph();
+            },
+
+            resizeGraph() {
+                const container = this.graphCanvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+
+                this.graphWidth = rect.width;
+                this.graphHeight = rect.height;
+
+                this.graphCanvas.width = this.graphWidth * dpr;
+                this.graphCanvas.height = this.graphHeight * dpr;
+                this.graphCanvas.style.width = this.graphWidth + 'px';
+                this.graphCanvas.style.height = this.graphHeight + 'px';
+
+                this.graphCtx.scale(dpr, dpr);
+                this.drawGraph();
+            },
+
+            async initWasm() {
+                try {
+                    await new Promise((resolve) => {
+                        if (typeof Module !== 'undefined' && Module.calledRun) {
+                            resolve();
+                        } else {
+                            Module.onRuntimeInitialized = resolve;
+                        }
+                    });
+
+                    this.wasmReady = true;
+                    this.elements.wasmStatus.classList.add('ready');
+                    this.elements.wasmStatusText.textContent = 'WASM: Ready';
+                    this.elements.loadingOverlay.classList.add('hidden');
+
+                    console.log('WASM module loaded successfully');
+                } catch (error) {
+                    console.error('Failed to load WASM:', error);
+                    this.elements.wasmStatusText.textContent = 'WASM: Error';
+                }
+            },
+
+            async handleFile(file) {
+                if (!file.type.startsWith('audio/') && !file.name.match(/\.(wav|mp3|ogg|flac|m4a|aac|webm)$/i)) {
+                    alert('Please select an audio file');
+                    return;
+                }
+
+                this.elements.uploadZone.classList.add('has-file');
+                this.elements.fileName.textContent = file.name;
+
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    this.audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+
+                    const duration = this.audioBuffer.duration.toFixed(2);
+                    const sampleRate = this.audioBuffer.sampleRate;
+                    const channels = this.audioBuffer.numberOfChannels;
+
+                    this.elements.fileDuration.textContent = `${duration}s`;
+                    this.elements.fileSampleRate.textContent = `${sampleRate} Hz`;
+                    this.elements.fileChannels.textContent = channels === 1 ? 'Mono' : 'Stereo';
+                    this.elements.fileInfo.classList.add('visible');
+
+                    const url = URL.createObjectURL(file);
+                    this.elements.audioPlayer.src = url;
+                    this.elements.audioPlayerContainer.classList.add('visible');
+
+                    this.elements.animateBtn.disabled = false;
+
+                    this.lipSyncData = [];
+                    this.realtimeBuffer = [];
+                    this.currentFrame = 0;
+                    this.playbackOffset = 0;
+                    this.drawGraph();
+
+                } catch (error) {
+                    console.error('Error decoding audio:', error);
+                    alert('Failed to decode audio file. Try a different format.');
+                }
+            },
+
+            async processAudio() {
+                if (!this.wasmReady || !this.audioBuffer) return;
+
+                this.elements.animateBtn.disabled = true;
+                this.elements.progressContainer.classList.add('visible');
+                this.elements.wasmStatus.classList.remove('ready');
+                this.elements.wasmStatus.classList.add('processing');
+                this.elements.wasmStatusText.textContent = 'WASM: Processing...';
+
+                const sampleRate = this.audioBuffer.sampleRate;
+                const channelData = this.audioBuffer.getChannelData(0);
+                const totalSamples = channelData.length;
+
+                const initResult = Module.ccall('lipsync_wasm_init', 'number', ['number'], [sampleRate]);
+                if (!initResult) {
+                    alert('Failed to initialize lip-sync engine');
+                    return;
+                }
+
+                this.lipSyncData = [];
+
+                const chunkSize = sampleRate * 0.1;
+                let processed = 0;
+
+                const processChunk = () => {
+                    const start = processed;
+                    const end = Math.min(processed + chunkSize, totalSamples);
+                    const chunk = channelData.slice(start, end);
+
+                    const wasmBuffer = Module.ccall('lipsync_wasm_alloc_float_buffer', 'number', ['number'], [chunk.length]);
+                    Module.HEAPF32.set(chunk, wasmBuffer / 4);
+
+                    Module.ccall('lipsync_wasm_feed_float', 'number', ['number', 'number'], [wasmBuffer, chunk.length]);
+
+                    Module.ccall('lipsync_wasm_free_buffer', null, ['number'], [wasmBuffer]);
+
+                    const resultBuffer = Module.ccall('lipsync_wasm_alloc_float_buffer', 'number', ['number'], [4096 * 6]);
+                    const count = Module.ccall('lipsync_wasm_read_batch', 'number', ['number', 'number'], [resultBuffer, 4096]);
+
+                    for (let i = 0; i < count; i++) {
+                        const offset = (resultBuffer / 4) + i * 6;
+                        this.lipSyncData.push({
+                            time: Module.HEAPF32[offset],
+                            open: Module.HEAPF32[offset + 1],
+                            wide: Module.HEAPF32[offset + 2],
+                            round: Module.HEAPF32[offset + 3],
+                            tension: Module.HEAPF32[offset + 4],
+                            intensity: Module.HEAPF32[offset + 5]
+                        });
+                    }
+
+                    Module.ccall('lipsync_wasm_free_buffer', null, ['number'], [resultBuffer]);
+
+                    processed = end;
+                    const progress = (processed / totalSamples) * 100;
+                    this.elements.progressFill.style.width = progress + '%';
+                    this.elements.progressText.textContent = `Processing: ${progress.toFixed(1)}%`;
+                    this.elements.framesStatus.textContent = `Frames: ${this.lipSyncData.length}`;
+
+                    if (processed < totalSamples) {
+                        requestAnimationFrame(processChunk);
+                    } else {
+                        this.onProcessingComplete();
+                    }
+                };
+
+                requestAnimationFrame(processChunk);
+            },
+
+            onProcessingComplete() {
+                this.elements.progressText.textContent = `Complete! ${this.lipSyncData.length} frames`;
+                this.elements.wasmStatus.classList.remove('processing');
+                this.elements.wasmStatus.classList.add('ready');
+                this.elements.wasmStatusText.textContent = 'WASM: Ready';
+
+                this.elements.playBtn.disabled = false;
+                this.elements.resetBtn.disabled = false;
+                this.elements.animateBtn.disabled = false;
+
+                this.drawGraph();
+
+                console.log(`Processed ${this.lipSyncData.length} frames`);
+            },
+
+            playRealtime() {
+                if (!this.wasmReady || !this.audioBuffer) return;
+                if (this.isPlaying) return;
+
+                const sampleRate = this.audioBuffer.sampleRate;
+
+                Module.ccall('lipsync_wasm_init', 'number', ['number'], [sampleRate]);
+
+                this.realtimeBuffer = [];
+                this.lipSyncData = [];
+                this.realtimeProcessedSamples = 0;
+                this.currentParams = { open: 0, wide: 0.3, round: 0, tension: 0, intensity: 0 };
+
+                const lookaheadSamples = Math.floor(sampleRate * this.realtimeLookaheadMs / 1000);
+                this.processRealtimeChunk(0, lookaheadSamples);
+
+                this.isPlaying = true;
+                this.playbackStartTime = performance.now();
+                this.playbackOffset = 0;
+
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume();
+                }
+
+                this.audioSource = this.audioContext.createBufferSource();
+                this.audioSource.buffer = this.audioBuffer;
+                this.audioSource.connect(this.audioContext.destination);
+                this.audioSource.start(0);
+
+                this.audioSource.onended = () => {
+                    if (this.isPlaying) {
+                        this.pause();
+                    }
+                };
+
+                this.elements.animateBtn.disabled = true;
+                this.elements.playBtn.disabled = true;
+                this.elements.pauseBtn.disabled = false;
+                this.elements.resetBtn.disabled = false;
+                this.elements.wasmStatus.classList.remove('ready');
+                this.elements.wasmStatus.classList.add('realtime');
+                this.elements.wasmStatusText.textContent = 'WASM: Real-time';
+
+                this.lastFrameTime = performance.now();
+                this.frameCount = 0;
+                this.fpsUpdateTime = performance.now();
+
+                this.animateRealtime();
+            },
+
+            processRealtimeChunk(startSample, endSample) {
+                const channelData = this.audioBuffer.getChannelData(0);
+                const totalSamples = channelData.length;
+
+                startSample = Math.max(0, Math.min(startSample, totalSamples));
+                endSample = Math.max(startSample, Math.min(endSample, totalSamples));
+
+                if (startSample >= endSample) return;
+
+                const chunk = channelData.slice(startSample, endSample);
+
+                const wasmBuffer = Module.ccall('lipsync_wasm_alloc_float_buffer', 'number', ['number'], [chunk.length]);
+                Module.HEAPF32.set(chunk, wasmBuffer / 4);
+                Module.ccall('lipsync_wasm_feed_float', 'number', ['number', 'number'], [wasmBuffer, chunk.length]);
+                Module.ccall('lipsync_wasm_free_buffer', null, ['number'], [wasmBuffer]);
+
+                const resultBuffer = Module.ccall('lipsync_wasm_alloc_float_buffer', 'number', ['number'], [1024 * 6]);
+                const count = Module.ccall('lipsync_wasm_read_batch', 'number', ['number', 'number'], [resultBuffer, 1024]);
+
+                for (let i = 0; i < count; i++) {
+                    const offset = (resultBuffer / 4) + i * 6;
+                    const frame = {
+                        time: Module.HEAPF32[offset],
+                        open: Module.HEAPF32[offset + 1],
+                        wide: Module.HEAPF32[offset + 2],
+                        round: Module.HEAPF32[offset + 3],
+                        tension: Module.HEAPF32[offset + 4],
+                        intensity: Module.HEAPF32[offset + 5]
+                    };
+                    this.realtimeBuffer.push(frame);
+                    this.lipSyncData.push(frame);
+                }
+
+                Module.ccall('lipsync_wasm_free_buffer', null, ['number'], [resultBuffer]);
+
+                this.realtimeProcessedSamples = endSample;
+            },
+
+            animateRealtime() {
+                if (!this.isPlaying) return;
+
+                const now = performance.now();
+                const elapsed = (now - this.playbackStartTime) / 1000;
+                const sampleRate = this.audioBuffer.sampleRate;
+                const totalDuration = this.audioBuffer.duration;
+
+                this.frameCount++;
+                if (now - this.fpsUpdateTime >= 1000) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.fpsUpdateTime = now;
+                    this.elements.fpsStatus.textContent = `FPS: ${this.fps}`;
+                }
+
+                const targetSample = Math.floor((elapsed + this.realtimeLookaheadMs / 1000) * sampleRate);
+                if (targetSample > this.realtimeProcessedSamples) {
+                    const chunkSize = Math.floor(sampleRate * 0.05);
+                    this.processRealtimeChunk(
+                        this.realtimeProcessedSamples,
+                        Math.min(targetSample + chunkSize, this.audioBuffer.length)
+                    );
+                }
+
+                let frame = null;
+                while (this.realtimeBuffer.length > 1 && this.realtimeBuffer[1].time <= elapsed) {
+                    this.realtimeBuffer.shift();
+                }
+
+                if (this.realtimeBuffer.length >= 2) {
+                    const f0 = this.realtimeBuffer[0];
+                    const f1 = this.realtimeBuffer[1];
+                    const t = (elapsed - f0.time) / (f1.time - f0.time);
+                    const tClamped = Math.max(0, Math.min(1, t));
+
+                    frame = {
+                        open: f0.open + tClamped * (f1.open - f0.open),
+                        wide: f0.wide + tClamped * (f1.wide - f0.wide),
+                        round: f0.round + tClamped * (f1.round - f0.round),
+                        tension: f0.tension + tClamped * (f1.tension - f0.tension),
+                        intensity: f0.intensity + tClamped * (f1.intensity - f0.intensity)
+                    };
+                } else if (this.realtimeBuffer.length === 1) {
+                    frame = this.realtimeBuffer[0];
+                }
+
+                if (frame) {
+                    this.currentParams = frame;
+                    this.updateDisplay(frame);
+                }
+
+                this.updateTimeDisplay(elapsed);
+                this.elements.framesStatus.textContent = `Frames: ${this.lipSyncData.length}`;
+                this.drawGraph(elapsed);
+
+                if (elapsed >= totalDuration) {
+                    this.pause();
+                    return;
+                }
+
+                this.animationId = requestAnimationFrame(() => this.animateRealtime());
+            },
+
+            play() {
+                if (this.mode === 'realtime') {
+                    this.playRealtime();
+                    return;
+                }
+
+                if (this.lipSyncData.length === 0) return;
+
+                // Auto-restart if at or near end
+                const totalTime = this.lipSyncData[this.lipSyncData.length - 1].time;
+                if (this.playbackOffset >= totalTime - 0.1) {
+                    this.playbackOffset = 0;
+                    this.currentFrame = 0;
+                    this.elements.audioPlayer.currentTime = 0;
+                }
+
+                if (this.isPlaying) return;
+
+                this.isPlaying = true;
+                this.elements.playBtn.disabled = true;
+                this.elements.pauseBtn.disabled = false;
+
+                this.elements.audioPlayer.currentTime = this.playbackOffset;
+                this.elements.audioPlayer.play();
+
+                this.playbackStartTime = performance.now() - (this.playbackOffset * 1000);
+                this.lastFrameTime = performance.now();
+                this.frameCount = 0;
+                this.fpsUpdateTime = performance.now();
+
+                this.animate();
+            },
+
+            pause() {
+                if (!this.isPlaying) return;
+
+                this.isPlaying = false;
+                this.elements.playBtn.disabled = false;
+                this.elements.pauseBtn.disabled = true;
+                this.elements.animateBtn.disabled = false;
+
+                if (this.mode === 'realtime') {
+                    if (this.audioSource) {
+                        try {
+                            this.audioSource.stop();
+                        } catch (e) { }
+                        this.audioSource = null;
+                    }
+                    this.elements.wasmStatus.classList.remove('realtime');
+                    this.elements.wasmStatus.classList.add('ready');
+                    this.elements.wasmStatusText.textContent = 'WASM: Ready';
+                } else {
+                    this.elements.audioPlayer.pause();
+                    this.playbackOffset = this.elements.audioPlayer.currentTime;
+                }
+
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+            },
+
+            reset() {
+                this.pause();
+                this.playbackOffset = 0;
+                this.currentFrame = 0;
+                this.realtimeBuffer = [];
+                this.realtimeProcessedSamples = 0;
+
+                if (this.mode === 'preprocess') {
+                    this.elements.audioPlayer.currentTime = 0;
+                }
+
+                this.updateDisplay({ open: 0, wide: 0.3, round: 0, tension: 0, intensity: 0 });
+                this.drawGraph();
+                this.elements.framesStatus.textContent = `Frames: ${this.lipSyncData.length}`;
+            },
+
+            animate() {
+                if (!this.isPlaying) return;
+
+                const now = performance.now();
+                const elapsed = (now - this.playbackStartTime) / 1000;
+
+                this.frameCount++;
+                if (now - this.fpsUpdateTime >= 1000) {
+                    this.fps = this.frameCount;
+                    this.frameCount = 0;
+                    this.fpsUpdateTime = now;
+                    this.elements.fpsStatus.textContent = `FPS: ${this.fps}`;
+                }
+
+                while (this.currentFrame < this.lipSyncData.length - 1 &&
+                    this.lipSyncData[this.currentFrame + 1].time <= elapsed) {
+                    this.currentFrame++;
+                }
+
+                const frame = this.lipSyncData[this.currentFrame];
+                const nextFrame = this.lipSyncData[Math.min(this.currentFrame + 1, this.lipSyncData.length - 1)];
+
+                let t = 0;
+                if (nextFrame.time !== frame.time) {
+                    t = (elapsed - frame.time) / (nextFrame.time - frame.time);
+                    t = Math.max(0, Math.min(1, t));
+                }
+
+                const interpolated = {
+                    open: frame.open + t * (nextFrame.open - frame.open),
+                    wide: frame.wide + t * (nextFrame.wide - frame.wide),
+                    round: frame.round + t * (nextFrame.round - frame.round),
+                    tension: frame.tension + t * (nextFrame.tension - frame.tension),
+                    intensity: frame.intensity + t * (nextFrame.intensity - frame.intensity)
+                };
+
+                this.updateDisplay(interpolated);
+                this.updateTimeDisplay(elapsed);
+                this.drawGraph(elapsed);
+
+                if (elapsed >= this.lipSyncData[this.lipSyncData.length - 1].time) {
+                    this.pause();
+                    return;
+                }
+
+                this.animationId = requestAnimationFrame(() => this.animate());
+            },
+
+            updateDisplay(params) {
+                this.elements.valOpen.textContent = params.open.toFixed(2);
+                this.elements.valWide.textContent = params.wide.toFixed(2);
+                this.elements.valRound.textContent = params.round.toFixed(2);
+                this.elements.valTension.textContent = params.tension.toFixed(2);
+                this.elements.valIntensity.textContent = params.intensity.toFixed(2);
+
+                this.updateFace(params);
+            },
+
+            updateFace(params) {
+                const { open, wide, round, tension } = params;
+
+                const baseWidth = 12;
+                const baseHeight = 3;
+
+                // Closed mouth for bilabials (m, p, b): low open + high tension
+                const isClosed = (open < 0.12 && tension > 0.25) || open < 0.06;
+
+                if (isClosed) {
+                    // Closed/pressed lips
+                    const closedWidth = baseWidth * (0.8 + wide * 0.3 - round * 0.2);
+                    const pressedHeight = 0.5 + tension * 0.8;
+
+                    this.elements.mouthOuter.setAttribute('rx', closedWidth);
+                    this.elements.mouthOuter.setAttribute('ry', pressedHeight);
+                    this.elements.mouthInner.setAttribute('rx', 0);
+                    this.elements.mouthInner.setAttribute('ry', 0);
+
+                    // Show upper lip line when pressed
+                    this.elements.upperLip.setAttribute('opacity', 0.6 + tension * 0.4);
+                    const lipCurve = -0.5 - tension * 1.5;
+                    this.elements.upperLip.setAttribute('d', `M-${closedWidth} 0 Q0 ${lipCurve}, ${closedWidth} 0`);
+
+                    // Thicker stroke when pressed
+                    this.elements.mouthOuter.setAttribute('stroke-width', 2 + tension);
+                } else {
+                    // Open mouth
+                    const mouthWidth = baseWidth * (0.65 + wide * 0.5 - round * 0.25);
+
+                    // Non-linear opening curve - slower at start
+                    const openCurve = Math.pow(open, 0.65);
+                    const mouthHeight = baseHeight * (0.2 + openCurve * 2.0);
+
+                    // Inner dark area
+                    const innerWidth = mouthWidth * 0.65;
+                    const innerHeight = Math.max(0, mouthHeight - 1.2) * (1 - tension * 0.2);
+
+                    this.elements.mouthOuter.setAttribute('rx', mouthWidth);
+                    this.elements.mouthOuter.setAttribute('ry', mouthHeight);
+                    this.elements.mouthInner.setAttribute('rx', innerWidth);
+                    this.elements.mouthInner.setAttribute('ry', innerHeight);
+
+                    // Hide upper lip line when open
+                    this.elements.upperLip.setAttribute('opacity', Math.max(0, 0.3 - open));
+
+                    // Normal stroke
+                    this.elements.mouthOuter.setAttribute('stroke-width', 1.5 + tension * 0.5);
+                }
+            },
+
+            updateTimeDisplay(currentTime) {
+                const total = this.lipSyncData.length > 0 ?
+                    this.lipSyncData[this.lipSyncData.length - 1].time :
+                    (this.audioBuffer ? this.audioBuffer.duration : 0);
+                this.elements.timeDisplay.textContent =
+                    `${currentTime.toFixed(2)}s / ${total.toFixed(2)}s`;
+            },
+
+            drawGraph(currentTime = 0) {
+                const ctx = this.graphCtx;
+                const w = this.graphWidth;
+                const h = this.graphHeight;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(0, 0, w, h);
+
+                if (this.lipSyncData.length === 0) {
+                    ctx.fillStyle = '#5a6270';
+                    ctx.font = '14px "JetBrains Mono", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Process audio to see parameter timeline', w / 2, h / 2);
+                    return;
+                }
+
+                const totalTime = this.audioBuffer ? this.audioBuffer.duration :
+                    this.lipSyncData[this.lipSyncData.length - 1].time;
+                const padding = 10;
+                const graphW = w - padding * 2;
+                const graphH = h - padding * 2;
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= 4; i++) {
+                    const y = padding + (i / 4) * graphH;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(w - padding, y);
+                    ctx.stroke();
+                }
+
+                const params = ['open', 'wide', 'round', 'tension', 'intensity'];
+
+                params.forEach((param) => {
+                    ctx.strokeStyle = this.colors[param];
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+
+                    let started = false;
+                    for (let i = 0; i < this.lipSyncData.length; i++) {
+                        const frame = this.lipSyncData[i];
+                        const x = padding + (frame.time / totalTime) * graphW;
+                        const y = padding + (1 - frame[param]) * graphH;
+
+                        if (!started) {
+                            ctx.moveTo(x, y);
+                            started = true;
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                });
+
+                if (currentTime > 0) {
+                    const x = padding + (currentTime / totalTime) * graphW;
+
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx.lineWidth = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(x, padding);
+                    ctx.lineTo(x, h - padding);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, padding);
+                    ctx.lineTo(x, h - padding);
+                    ctx.stroke();
+                }
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => App.init());
+    </script>
+</body>
+
+</html>
