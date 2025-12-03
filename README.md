@@ -4,7 +4,7 @@ Lipsank is a tiny, single-header C/C++ library that extracts simple real-time mo
 
 # Demo
 
-Check out an online demo at: [coeurnix.github.io/lipsank/](coeurnix.github.io/lipsank/)
+Check out an online demo at: [https://coeurnix.github.io/lipsank/](https://coeurnix.github.io/lipsank/)
 
 # Lipsank Quickstart
 
